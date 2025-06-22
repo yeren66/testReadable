@@ -7,8 +7,7 @@
     "dev": "vercel dev",
     "build": "echo 'Static site, no build needed'",
     "deploy": "vercel --prod",
-    "generate": "python3 generate_data.py",
-    "start": "python3 run_evaluation_system.py"
+    "start": "echo 'Static site ready'"
   },
   "keywords": [
     "evaluation",
