@@ -2,6 +2,7 @@
 # 快速部署脚本
 
 echo "=== 测试用例评估系统部署 ==="
+echo "✅ Vercel配置已修复，解决了builds/functions冲突问题"
 
 # 检查是否安装了git
 if ! command -v git &> /dev/null; then
@@ -32,4 +33,7 @@ echo "2. 运行: git remote add origin https://github.com/yourusername/your-repo
 echo "3. 运行: git push -u origin main"
 echo "4. 在Vercel中连接GitHub仓库并部署"
 echo ""
-echo "部署完成后，您将获得一个可访问的URL"
+echo "部署完成后："
+echo "1. 您将获得一个可访问的URL"
+echo "2. 运行验证脚本: node verify-deployment.js https://your-app.vercel.app"
+echo "3. 开始收集评估数据"
