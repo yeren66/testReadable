@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试用例可读性分析评估系统</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-chart-bar"></i> 测试用例可读性分析评估系统</h1>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">总测试方法:</span>
+                        <span id="totalMethods" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">已评估:</span>
+                        <span id="evaluatedMethods" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">进度:</span>
+                        <span id="progressPercent" class="stat-value">0%</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="navigation">
+            <div class="nav-controls">
+                <button id="prevBtn" class="nav-btn" disabled>
+                    <i class="fas fa-chevron-left"></i> 上一个
+                </button>
+                <span id="currentPosition" class="position-indicator">1 / 1</span>
+                <button id="nextBtn" class="nav-btn" disabled>
+                    下一个 <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="nav-actions">
+                <button id="exportBtn" class="action-btn export-btn">
+                    <i class="fas fa-download"></i> 导出结果
+                </button>
+                <button id="resetBtn" class="action-btn reset-btn">
+                    <i class="fas fa-undo"></i> 重置评分
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Method Info Panel -->
+            <div class="method-info-panel">
+                <h2 id="currentMethodName">选择测试方法</h2>
+                <div class="method-details">
+                    <span class="method-project" id="methodProject"></span>
+                    <span class="method-separator">•</span>
+                    <span class="method-name" id="methodName"></span>
+                </div>
+            </div>
+
+            <!-- Test Cases Container -->
+            <div id="testCasesContainer" class="test-cases-container">
+                <div class="loading-message">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>正在加载测试用例...</p>
+                </div>
+            </div>
+
+            <!-- Evaluation Summary -->
+            <div id="evaluationSummary" class="evaluation-summary" style="display: none;">
+                <h3><i class="fas fa-chart-pie"></i> 当前方法评估汇总</h3>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="summary-label">方法 A 平均分:</span>
+                        <span id="methodAAvg" class="summary-value">-</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">方法 B 平均分:</span>
+                        <span id="methodBAvg" class="summary-value">-</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">方法 C 平均分:</span>
+                        <span id="methodCAvg" class="summary-value">-</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">方法 D 平均分:</span>
+                        <span id="methodDAvg" class="summary-value">-</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Evaluation Criteria Modal -->
+        <div id="criteriaModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-info-circle"></i> 评分标准</h3>
+                    <button class="close-btn" onclick="closeCriteriaModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="criteria-section">
+                        <h4>可读性 (总分 2-6)</h4>
+                        <div class="criteria-item">
+                            <strong>命名直观性 (1-3分)</strong>
+                            <ul>
+                                <li><strong>3分:</strong> 大多数命名直观、易于理解</li>
+                                <li><strong>2分:</strong> 部分命名直观、易于理解</li>
+                                <li><strong>1分:</strong> 大多数命名若无大量上下文难以理解</li>
+                            </ul>
+                        </div>
+                        <div class="criteria-item">
+                            <strong>代码布局 (1-3分)</strong>
+                            <ul>
+                                <li><strong>3分:</strong> 结构良好、逻辑清晰</li>
+                                <li><strong>2分:</strong> 整体结构合理，仅有轻微问题</li>
+                                <li><strong>1分:</strong> 逻辑混乱或存在大量冗余代码</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="criteria-section">
+                        <h4>可用性 (总分 2-6)</h4>
+                        <div class="criteria-item">
+                            <strong>断言质量 (1-3分)</strong>
+                            <ul>
+                                <li><strong>3分:</strong> 断言准确、完全契合测试场景</li>
+                                <li><strong>2分:</strong> 断言合理但力度不足</li>
+                                <li><strong>1分:</strong> 断言语义不正确</li>
+                            </ul>
+                        </div>
+                        <div class="criteria-item">
+                            <strong>迁移成本 (1-3分)</strong>
+                            <ul>
+                                <li><strong>3分:</strong> 无需任何修改即可直接采用</li>
+                                <li><strong>2分:</strong> 仅需简单修改即可采用</li>
+                                <li><strong>1分:</strong> 需大量优化方可采用</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Button -->
+        <button id="helpBtn" class="help-btn" onclick="openCriteriaModal()">
+            <i class="fas fa-question-circle"></i>
+        </button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-highlight/prism-line-highlight.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

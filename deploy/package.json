@@ -1,0 +1,33 @@
+{
+  "name": "test-case-evaluation-system",
+  "version": "1.0.0",
+  "description": "测试用例可读性分析评估系统 - 匿名化在线评估平台",
+  "main": "index_with_data.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static site, no build needed'",
+    "deploy": "vercel --prod",
+    "generate": "python3 generate_data.py",
+    "start": "python3 run_evaluation_system.py"
+  },
+  "keywords": [
+    "evaluation",
+    "test-cases",
+    "research",
+    "anonymous",
+    "code-quality",
+    "software-testing"
+  ],
+  "author": "Research Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/test-evaluation-system.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}
