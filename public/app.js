@@ -67,6 +67,7 @@ class TestCaseEvaluationSystem {
         document.getElementById('nextBtn').addEventListener('click', () => this.nextMethod());
         
         // 操作按钮
+        document.getElementById('submitBtn').addEventListener('click', () => this.submitEvaluation());
         document.getElementById('exportBtn').addEventListener('click', () => this.exportResults());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetEvaluations());
         
@@ -100,8 +101,7 @@ class TestCaseEvaluationSystem {
         // 显示测试用例
         this.displayTestCases(currentMethod);
         
-        // 更新评估汇总
-        this.updateEvaluationSummary(currentMethod);
+
     }
 
     // 显示测试用例
@@ -266,7 +266,6 @@ class TestCaseEvaluationSystem {
                     
                     // 更新统计信息
                     this.updateStats();
-                    this.updateEvaluationSummary(this.testMethods[this.currentMethodIndex]);
                 });
             });
         });
@@ -427,39 +426,183 @@ class TestCaseEvaluationSystem {
         document.getElementById('progressPercent').textContent = `${progress}%`;
     }
 
-    // 更新评估汇总
-    updateEvaluationSummary(method) {
-        const summaryElement = document.getElementById('evaluationSummary');
-        const methodData = this.evaluationData[method.id];
 
-        if (!methodData) {
-            summaryElement.style.display = 'none';
+
+    // 检查评分状态
+    getEvaluationStatus() {
+        const notStarted = [];      // 未开始评分的方法
+        const incomplete = [];      // 部分完成的方法
+        const completed = [];       // 完全完成的方法
+
+        for (const method of this.testMethods) {
+            const methodData = this.evaluationData[method.id];
+            if (!methodData) {
+                notStarted.push(method.id);
+                continue;
+            }
+
+            // 检查该方法的所有工具是否都已评分
+            const toolMapping = this.methodToolMappings[method.id];
+            if (!toolMapping) {
+                notStarted.push(method.id);
+                continue;
+            }
+
+            let hasIncompleteEvaluation = false;
+            let hasAnyEvaluation = false;
+
+            for (const toolId in toolMapping) {
+                const toolData = methodData[toolId];
+                if (!toolData || Object.keys(toolData).length === 0) {
+                    hasIncompleteEvaluation = true;
+                    continue;
+                }
+
+                hasAnyEvaluation = true;
+
+                // 检查是否所有评分维度都已完成
+                const requiredCriteria = ['naming', 'layout', 'assertion', 'migration'];
+                for (const criterion of requiredCriteria) {
+                    if (!toolData[criterion] || toolData[criterion] === 0) {
+                        hasIncompleteEvaluation = true;
+                        break;
+                    }
+                }
+                // 不要在这里break，需要检查所有工具
+            }
+
+            if (!hasAnyEvaluation) {
+                notStarted.push(method.id);
+            } else if (hasIncompleteEvaluation) {
+                incomplete.push(method.id);
+            } else {
+                completed.push(method.id);
+            }
+        }
+
+        return {
+            notStarted,
+            incomplete,
+            completed,
+            totalUnevaluated: notStarted.length + incomplete.length
+        };
+    }
+
+    // 检查未评分的方法（向后兼容）
+    checkUnevaluatedMethods() {
+        const status = this.getEvaluationStatus();
+        return [...status.notStarted, ...status.incomplete];
+    }
+
+    // 提交评分到后台
+    async submitEvaluation() {
+        const submitBtn = document.getElementById('submitBtn');
+
+        // 检查是否有评分数据
+        if (Object.keys(this.evaluationData).length === 0) {
+            alert('请先完成一些评分再提交！');
             return;
         }
 
-        // 获取当前方法的工具映射
-        const toolMapping = this.methodToolMappings?.[method.id] || {};
-        const anonymousTools = Object.keys(toolMapping);
-        const averages = {};
+        // 检查评分状态
+        const evaluationStatus = this.getEvaluationStatus();
+        const unevaluatedMethods = [...evaluationStatus.notStarted, ...evaluationStatus.incomplete];
 
-        // 为每个匿名工具计算平均分
-        anonymousTools.forEach(anonymousTool => {
-            const toolData = methodData[anonymousTool];
-            if (toolData && Object.keys(toolData).length === 4) {
-                const scores = Object.values(toolData);
-                averages[anonymousTool] = (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1);
+        if (unevaluatedMethods.length > 0) {
+            let message = `评分状态统计：\n`;
+            message += `• 已完成: ${evaluationStatus.completed.length} 个方法\n`;
+            message += `• 部分完成: ${evaluationStatus.incomplete.length} 个方法\n`;
+            message += `• 未开始: ${evaluationStatus.notStarted.length} 个方法\n\n`;
+
+            message += `还有 ${unevaluatedMethods.length} 个方法未完成评分：\n\n`;
+
+            if (unevaluatedMethods.length <= 3) {
+                // 如果未评分方法少于等于3个，列出具体方法名
+                message += unevaluatedMethods.map(name => `• ${name}`).join('\n');
             } else {
-                averages[anonymousTool] = '-';
+                // 如果超过3个，只显示前3个并说明总数
+                message += unevaluatedMethods.slice(0, 3).map(name => `• ${name}`).join('\n');
+                message += `\n... 还有 ${unevaluatedMethods.length - 3} 个方法`;
             }
-        });
 
-        // 更新显示（按Tool_1, Tool_2, Tool_3, Tool_4的顺序）
-        document.getElementById('methodAAvg').textContent = averages['Tool_1'] || '-';
-        document.getElementById('methodBAvg').textContent = averages['Tool_2'] || '-';
-        document.getElementById('methodCAvg').textContent = averages['Tool_3'] || '-';
-        document.getElementById('methodDAvg').textContent = averages['Tool_4'] || '-';
+            message += '\n\n是否继续提交已完成的评分？';
 
-        summaryElement.style.display = 'block';
+            if (!confirm(message)) {
+                return;
+            }
+        }
+
+        // 禁用按钮并显示加载状态
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+
+        try {
+            const submissionData = {
+                evaluationData: this.evaluationData,
+                methodToolMappings: this.methodToolMappings || {},
+                metadata: {
+                    totalMethods: this.testMethods.length,
+                    completedMethods: evaluationStatus.completed.length,
+                    incompleteMethods: evaluationStatus.incomplete.length,
+                    notStartedMethods: evaluationStatus.notStarted.length,
+                    evaluatedMethods: Object.keys(this.evaluationData).length, // 已开始评分的方法数
+                    unevaluatedMethods: unevaluatedMethods.length, // 未完成评分的方法数
+                    timestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent
+                }
+            };
+
+            // 检测环境并使用正确的API端点
+            const apiUrl = window.location.hostname === 'localhost' && window.location.port === '3000'
+                ? '/api/submit-evaluation'  // 本地测试服务器
+                : '/api/submit-evaluation'; // Vercel部署环境
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(submissionData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                const completionRate = (evaluationStatus.completed.length / this.testMethods.length * 100).toFixed(1);
+                const startedRate = ((evaluationStatus.completed.length + evaluationStatus.incomplete.length) / this.testMethods.length * 100).toFixed(1);
+
+                let statusMessage = `✅ ${result.message}\n\n`;
+                statusMessage += `提交ID: ${result.submissionId}\n`;
+                statusMessage += `提交时间: ${new Date(result.timestamp).toLocaleString()}\n\n`;
+                statusMessage += `📊 评分统计:\n`;
+                statusMessage += `• 完全完成: ${evaluationStatus.completed.length}/${this.testMethods.length} (${completionRate}%)\n`;
+                statusMessage += `• 部分完成: ${evaluationStatus.incomplete.length}/${this.testMethods.length}\n`;
+                statusMessage += `• 未开始: ${evaluationStatus.notStarted.length}/${this.testMethods.length}\n`;
+                statusMessage += `• 总体进度: ${startedRate}%`;
+
+                alert(statusMessage);
+
+                // 提交成功后可以选择清除本地数据
+                if (confirm('提交成功！是否清除本地评分数据？')) {
+                    this.resetEvaluations();
+                }
+            } else {
+                throw new Error(result.error || '提交失败');
+            }
+
+        } catch (error) {
+            console.error('提交评分失败:', error);
+            alert(`❌ 提交失败: ${error.message}\n\n请检查网络连接或稍后重试。`);
+        } finally {
+            // 恢复按钮状态
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
     }
 
     // 导出结果

@@ -137,6 +137,22 @@ body {
     transition: all 0.3s ease;
 }
 
+.submit-btn {
+    background: #007bff;
+    color: white;
+}
+
+.submit-btn:hover {
+    background: #0056b3;
+    transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .export-btn {
     background: #28a745;
     color: white;
@@ -373,49 +389,7 @@ body {
     color: #1976d2;
 }
 
-/* Evaluation Summary */
-.evaluation-summary {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    margin-top: 30px;
-    border: 1px solid #e9ecef;
-}
 
-.evaluation-summary h3 {
-    color: #495057;
-    margin-bottom: 15px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-}
-
-.summary-item {
-    background: white;
-    padding: 15px;
-    border-radius: 6px;
-    border: 1px solid #dee2e6;
-    text-align: center;
-}
-
-.summary-label {
-    display: block;
-    font-size: 14px;
-    color: #6c757d;
-    margin-bottom: 5px;
-}
-
-.summary-value {
-    font-size: 24px;
-    font-weight: bold;
-    color: #495057;
-}
 
 /* Modal Styles */
 .modal {
@@ -559,9 +533,7 @@ body {
         grid-template-columns: 1fr;
     }
     
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
+
     
     .help-btn {
         bottom: 20px;
