@@ -20,90 +20,45 @@ class TestCaseEvaluationSystem {
     // 加载测试用例结构
     async loadTestCaseStructure() {
         try {
-            // 模拟从test_resource目录读取文件结构
-            // 在实际部署时，需要预处理生成文件列表
-            const methods = [
-                'chart_compareTo', 'chart_createWindPlot', 'chart_getHeight', 'chart_getLeft',
-                'chart_getPaint', 'chart_getRadius', 'chart_getType', 'chart_getY',
-                'chart_isBaseline', 'chart_isLeft', 'chart_isMultiple', 'chart_isTopOrBottom',
-                'chart_isVerticalCenter', 'chart_javascriptEscape', 'chart_overlaps',
-                'chart_setPaint', 'chart_setPoint', 'chart_transform', 'chart_trimWidth',
-                'chart_windowActivated', 'cli_clone', 'cli_createClass', 'cli_createObject',
-                'cli_createURL', 'cli_getArgList', 'cli_getDescription', 'cli_getLeftPadding',
-                'cli_getLongOptSeparator', 'cli_getMissingOptions', 'cli_getOptionComparator',
-                'cli_getValueClass', 'cli_getValueSeparator', 'cli_getValues', 'cli_getWidth',
-                'cli_hasArgName', 'cli_hasLongOpt', 'cli_hasValueSeparator', 'cli_hashCode',
-                'cli_isValueCode', 'cli_iterator', 'cli_numberOfArgs', 'cli_optionalArg',
-                'cli_setOptionComparator', 'cli_type', 'cli_withArgName',
-                'csv_getAllowDuplicateHeaderNames', 'csv_getCharacterPosition', 'csv_getComment',
-                'csv_getCommentMarker', 'csv_getDelimiter', 'csv_getEscapeCharacter',
-                'csv_getHeaderComments', 'csv_getIgnoreHeaderCase', 'csv_getNullString',
-                'csv_getQuoteCharacter', 'csv_getTrailerComment', 'csv_getTrailingDelimiter',
-                'csv_hasComment', 'csv_hasHeaderComment', 'csv_hasTrailerComment',
-                'csv_isEscapeCharacterSet', 'csv_isMapped', 'csv_isNullStringSet',
-                'csv_isQuoteCharacterSet', 'csv_newFormat', 'csv_setAutoFlush',
-                'csv_setQuoteMode', 'csv_toList', 'csv_valueOf', 'csv_withDelimiter',
-                'csv_withFirstRecordAsHeader', 'csv_withNullString',
-                'gson_createExceptionForUnexpectedIllegalAccess', 'gson_disableHtmlEscaping',
-                'gson_disableJdkUnsafe', 'gson_getAccessibleObjectDescription', 'gson_getType',
-                'gson_isAnonymousOrNonStaticLocal', 'gson_isJavaType', 'gson_isPrimitive',
-                'gson_isString', 'gson_setFieldNamingPolicy', 'gson_setLongSerializationPolicy',
-                'gson_setObjectToNumberStrategy', 'gson_setVersion', 'gson_unwrap',
-                'gson_withExclusionStrategy', 'gson_withSpaceAfterSeparators',
-                'lang_availableLocaleSet', 'lang_binaryToByte', 'lang_booleanValue',
-                'lang_byteToBinary', 'lang_byteToHex', 'lang_byteValue', 'lang_getHostName',
-                'lang_hexDigitMsb0ToBinary', 'lang_hexDigitMsb0ToInt', 'lang_hexDigitToBinary',
-                'lang_intArrayToLong', 'lang_intToBinary', 'lang_intToHex', 'lang_intToHexDigit',
-                'lang_intToHexDigitMsb0', 'lang_isFalse', 'lang_isInfinite',
-                'lang_isJavaVersionAtLeast', 'lang_isTrue', 'lang_longToHex', 'lang_setTrue',
-                'lang_toBoolean', 'ruler_absencePatterns', 'ruler_anythingButNumbersMatch',
-                'ruler_entries', 'ruler_existencePatterns', 'ruler_findPattern', 'ruler_getBytes',
-                'ruler_getId', 'ruler_getKey', 'ruler_getMultiBytes', 'ruler_getNameState',
-                'ruler_getNextState', 'ruler_getParser', 'ruler_getPattern', 'ruler_is',
-                'ruler_isGreaterThan', 'ruler_lessThanOrEqualTo', 'ruler_prefixMatch', 'ruler_singular'
-            ];
+            // 使用嵌入在HTML中的测试方法数据
+            if (window.TEST_METHODS_DATA && Array.isArray(window.TEST_METHODS_DATA)) {
+                this.testMethods = window.TEST_METHODS_DATA;
+                console.log('已加载测试方法数据:', this.testMethods.length, '个方法');
+            } else {
+                throw new Error('未找到嵌入的测试方法数据 (window.TEST_METHODS_DATA)');
+            }
 
-            this.testMethods = methods.map(method => {
-                const [project, methodName] = method.split('_', 2);
-                return {
-                    id: method,
-                    project: project,
-                    methodName: methodName,
-                    fullName: `${project}_${methodName}`
-                };
-            });
+            // 使用嵌入在HTML中的测试用例数据
+            if (window.TEST_CASES_DATA && typeof window.TEST_CASES_DATA === 'object') {
+                this.testCaseFiles = {};
 
-            // 预加载所有测试用例文件
-            await this.preloadTestCaseFiles();
-            
+                // 数据格式: {"Method_A": {"method_id": "test_content", ...}, ...}
+                for (const toolName of Object.keys(window.TEST_CASES_DATA)) {
+                    const toolData = window.TEST_CASES_DATA[toolName];
+
+                    // 遍历每个工具的方法数据
+                    for (const methodId of Object.keys(toolData)) {
+                        if (!this.testCaseFiles[methodId]) {
+                            this.testCaseFiles[methodId] = {};
+                        }
+                        this.testCaseFiles[methodId][toolName] = toolData[methodId];
+                    }
+                }
+
+                console.log('已加载测试用例数据:', Object.keys(this.testCaseFiles).length, '个方法的测试用例');
+                console.log('可用的工具:', Object.keys(window.TEST_CASES_DATA));
+                console.log('示例方法数据:', Object.keys(this.testCaseFiles).slice(0, 3));
+            } else {
+                throw new Error('未找到嵌入的测试用例数据 (window.TEST_CASES_DATA)');
+            }
+
         } catch (error) {
             console.error('加载测试用例结构失败:', error);
-            this.showError('无法加载测试用例结构，请确保test_resource目录存在且包含测试文件。');
+            this.showError('无法加载测试用例结构: ' + error.message);
         }
     }
 
-    // 预加载测试用例文件
-    async preloadTestCaseFiles() {
-        const tools = ['ChatUniTest_Test', 'TestAgent_Test', 'EvoSuite_Test', 'HITS_Test'];
-        
-        for (const method of this.testMethods) {
-            this.testCaseFiles[method.id] = {};
-            
-            for (const tool of tools) {
-                try {
-                    const response = await fetch(`test_resource/${tool}/${method.id}.java`);
-                    if (response.ok) {
-                        this.testCaseFiles[method.id][tool] = await response.text();
-                    } else {
-                        this.testCaseFiles[method.id][tool] = null;
-                    }
-                } catch (error) {
-                    console.warn(`无法加载 ${tool}/${method.id}.java:`, error);
-                    this.testCaseFiles[method.id][tool] = null;
-                }
-            }
-        }
-    }
+
 
     // 设置事件监听器
     setupEventListeners() {
@@ -153,22 +108,49 @@ class TestCaseEvaluationSystem {
     displayTestCases(method) {
         const container = document.getElementById('testCasesContainer');
         container.innerHTML = '';
-        
-        const tools = [
-            { name: 'Method_A', displayName: '方法 A', badge: 'method-a' },
-            { name: 'Method_B', displayName: '方法 B', badge: 'method-b' },
-            { name: 'Method_C', displayName: '方法 C', badge: 'method-c' },
-            { name: 'Method_D', displayName: '方法 D', badge: 'method-d' }
-        ];
-        
-        tools.forEach(tool => {
-            const testCaseContent = this.testCaseFiles[method.id]?.[tool.name];
+
+        // 动态获取可用的工具列表
+        const availableTools = [];
+        if (this.testCaseFiles[method.id]) {
+            const methodData = this.testCaseFiles[method.id];
+            const toolNames = Object.keys(methodData);
+
+            console.log(`方法 ${method.id} 的原始工具数据:`, toolNames);
+
+            // 为每个可用的工具创建显示信息
+            toolNames.forEach((toolName, index) => {
+                const displayNames = {
+                    'Method_A': '方法 A',
+                    'Method_B': '方法 B',
+                    'Method_C': '方法 C',
+                    'Method_D': '方法 D'
+                };
+
+                const badges = {
+                    'Method_A': 'method-a',
+                    'Method_B': 'method-b',
+                    'Method_C': 'method-c',
+                    'Method_D': 'method-d'
+                };
+
+                availableTools.push({
+                    name: toolName,
+                    displayName: displayNames[toolName] || `方法 ${String.fromCharCode(65 + index)}`,
+                    badge: badges[toolName] || `method-${toolName.toLowerCase()}`
+                });
+            });
+        }
+
+        console.log(`方法 ${method.id} 的可用工具:`, availableTools.map(t => t.name));
+
+        availableTools.forEach(tool => {
+            const testCaseContent = this.testCaseFiles[method.id][tool.name];
             if (testCaseContent) {
                 const card = this.createTestCaseCard(method, tool, testCaseContent);
                 container.appendChild(card);
             }
         });
-        
+
         // 如果没有任何测试用例，显示提示信息
         if (container.children.length === 0) {
             container.innerHTML = `
