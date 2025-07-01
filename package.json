@@ -2,7 +2,7 @@
   "name": "test-case-evaluation-system",
   "version": "1.0.0",
   "description": "测试用例可读性分析评估系统 - 匿名化在线评估平台",
-  "main": "index_with_data.html",
+  "main": "index.html",
   "scripts": {
     "dev": "vercel dev",
     "build": "echo 'Static site, no build needed'",
