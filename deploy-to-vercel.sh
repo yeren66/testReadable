@@ -6,18 +6,18 @@ echo "=================================="
 # 检查必要文件
 echo "📋 检查必要文件..."
 
-if [ ! -f "index.html" ]; then
-    echo "❌ 缺少 index.html 文件"
+if [ ! -f "public/index.html" ]; then
+    echo "❌ 缺少 public/index.html 文件"
     exit 1
 fi
 
-if [ ! -f "app.js" ]; then
-    echo "❌ 缺少 app.js 文件"
+if [ ! -f "public/app.js" ]; then
+    echo "❌ 缺少 public/app.js 文件"
     exit 1
 fi
 
-if [ ! -f "styles.css" ]; then
-    echo "❌ 缺少 styles.css 文件"
+if [ ! -f "public/styles.css" ]; then
+    echo "❌ 缺少 public/styles.css 文件"
     exit 1
 fi
 

@@ -66,12 +66,14 @@
 
 ```
 readable/
-├── index.html          ✅ 主页面
-├── app.js             ✅ 主要 JavaScript 文件
-├── styles.css         ✅ 样式文件
-├── package.json       ✅ 项目配置
-└── api/
-    └── save-evaluation.js ✅ API 端点
+├── public/
+│   ├── index.html     ✅ 主页面
+│   ├── app.js        ✅ 主要 JavaScript 文件
+│   └── styles.css    ✅ 样式文件
+├── api/
+│   └── save-evaluation.js ✅ API 端点
+├── package.json      ✅ 项目配置
+└── vercel.json       ✅ 部署配置
 ```
 
 ## 🧪 测试部署
