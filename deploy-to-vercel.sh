@@ -28,10 +28,9 @@ fi
 
 echo "✅ 所有必要文件都存在"
 
-# 删除可能有问题的配置文件
-echo "🧹 清理可能有问题的配置文件..."
-rm -f vercel.json
-echo "✅ 已删除 vercel.json"
+# 确保使用 Vercel 自动检测
+echo "🧹 使用 Vercel 自动检测配置..."
+echo "✅ 让 Vercel 自动检测项目类型"
 
 # 确保 package.json 正确
 echo "📦 检查 package.json..."
