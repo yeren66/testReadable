@@ -109,7 +109,7 @@ class TestCaseEvaluationSystem {
         const container = document.getElementById('testCasesContainer');
         container.innerHTML = '';
 
-        // 动态获取可用的工具列表
+        // 动态获取可用的工具列表并随机打乱顺序
         const availableTools = [];
         if (this.testCaseFiles[method.id]) {
             const methodData = this.testCaseFiles[method.id];
@@ -117,34 +117,36 @@ class TestCaseEvaluationSystem {
 
             console.log(`方法 ${method.id} 的原始工具数据:`, toolNames);
 
-            // 为每个可用的工具创建显示信息
-            toolNames.forEach((toolName, index) => {
-                const displayNames = {
-                    'Method_A': '方法 A',
-                    'Method_B': '方法 B',
-                    'Method_C': '方法 C',
-                    'Method_D': '方法 D'
-                };
+            // 为每个可用的工具创建显示信息，使用随机顺序
+            const shuffledToolNames = this.shuffleArray([...toolNames]);
 
-                const badges = {
-                    'Method_A': 'method-a',
-                    'Method_B': 'method-b',
-                    'Method_C': 'method-c',
-                    'Method_D': 'method-d'
-                };
+            // 保存每个方法的工具映射关系，用于正确的评分统计
+            if (!this.methodToolMappings) {
+                this.methodToolMappings = {};
+            }
+            this.methodToolMappings[method.id] = {};
+
+            shuffledToolNames.forEach((originalToolName, index) => {
+                const anonymousName = `Tool_${index + 1}`;  // 使用Tool_1, Tool_2等匿名标识
+                const displayName = `方法 ${String.fromCharCode(65 + index)}`; // 方法A, 方法B等
+                const badge = `method-${String.fromCharCode(97 + index)}`; // method-a, method-b等
+
+                // 保存匿名标识到原始工具名的映射
+                this.methodToolMappings[method.id][anonymousName] = originalToolName;
 
                 availableTools.push({
-                    name: toolName,
-                    displayName: displayNames[toolName] || `方法 ${String.fromCharCode(65 + index)}`,
-                    badge: badges[toolName] || `method-${toolName.toLowerCase()}`
+                    name: anonymousName,  // 使用匿名标识作为内部名称
+                    originalName: originalToolName,  // 保存原始名称
+                    displayName: displayName,
+                    badge: badge
                 });
             });
         }
 
-        console.log(`方法 ${method.id} 的可用工具:`, availableTools.map(t => t.name));
+        console.log(`方法 ${method.id} 的工具映射:`, this.methodToolMappings[method.id]);
 
         availableTools.forEach(tool => {
-            const testCaseContent = this.testCaseFiles[method.id][tool.name];
+            const testCaseContent = this.testCaseFiles[method.id][tool.originalName];
             if (testCaseContent) {
                 const card = this.createTestCaseCard(method, tool, testCaseContent);
                 container.appendChild(card);
@@ -160,6 +162,16 @@ class TestCaseEvaluationSystem {
                 </div>
             `;
         }
+    }
+
+    // 数组随机打乱函数
+    shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     }
 
     // 创建测试用例卡片
@@ -271,15 +283,17 @@ class TestCaseEvaluationSystem {
         if (!this.evaluationData[methodId][toolName]) {
             this.evaluationData[methodId][toolName] = {};
         }
-        
+
         this.evaluationData[methodId][toolName][criterion] = score;
-        
-        // 保存到localStorage
+
+        // 保存评分数据和工具映射到localStorage
         localStorage.setItem('testCaseEvaluations', JSON.stringify(this.evaluationData));
+        localStorage.setItem('methodToolMappings', JSON.stringify(this.methodToolMappings || {}));
     }
 
     // 加载评估数据
     loadEvaluationData() {
+        // 加载评分数据
         const saved = localStorage.getItem('testCaseEvaluations');
         if (saved) {
             try {
@@ -288,6 +302,19 @@ class TestCaseEvaluationSystem {
                 console.error('加载评估数据失败:', error);
                 this.evaluationData = {};
             }
+        }
+
+        // 加载工具映射数据
+        const savedMappings = localStorage.getItem('methodToolMappings');
+        if (savedMappings) {
+            try {
+                this.methodToolMappings = JSON.parse(savedMappings);
+            } catch (error) {
+                console.error('加载工具映射数据失败:', error);
+                this.methodToolMappings = {};
+            }
+        } else {
+            this.methodToolMappings = {};
         }
     }
 
@@ -374,19 +401,27 @@ class TestCaseEvaluationSystem {
     updateStats() {
         const totalMethods = this.testMethods.length;
         let evaluatedMethods = 0;
-        
+
         this.testMethods.forEach(method => {
             const methodData = this.evaluationData[method.id];
-            if (methodData) {
-                const tools = Object.keys(methodData);
-                if (tools.some(tool => Object.keys(methodData[tool]).length === 4)) {
+            const toolMapping = this.methodToolMappings?.[method.id] || {};
+            const expectedTools = Object.keys(toolMapping);
+
+            if (methodData && expectedTools.length > 0) {
+                // 检查是否所有工具都已完成评分（每个工具需要4个评分维度）
+                const allToolsEvaluated = expectedTools.every(tool => {
+                    const toolData = methodData[tool];
+                    return toolData && Object.keys(toolData).length === 4;
+                });
+
+                if (allToolsEvaluated) {
                     evaluatedMethods++;
                 }
             }
         });
-        
+
         const progress = totalMethods > 0 ? Math.round((evaluatedMethods / totalMethods) * 100) : 0;
-        
+
         document.getElementById('totalMethods').textContent = totalMethods;
         document.getElementById('evaluatedMethods').textContent = evaluatedMethods;
         document.getElementById('progressPercent').textContent = `${progress}%`;
@@ -396,30 +431,34 @@ class TestCaseEvaluationSystem {
     updateEvaluationSummary(method) {
         const summaryElement = document.getElementById('evaluationSummary');
         const methodData = this.evaluationData[method.id];
-        
+
         if (!methodData) {
             summaryElement.style.display = 'none';
             return;
         }
-        
-        const tools = ['Method_A', 'Method_B', 'Method_C', 'Method_D'];
+
+        // 获取当前方法的工具映射
+        const toolMapping = this.methodToolMappings?.[method.id] || {};
+        const anonymousTools = Object.keys(toolMapping);
         const averages = {};
 
-        tools.forEach(tool => {
-            const toolData = methodData[tool];
+        // 为每个匿名工具计算平均分
+        anonymousTools.forEach(anonymousTool => {
+            const toolData = methodData[anonymousTool];
             if (toolData && Object.keys(toolData).length === 4) {
                 const scores = Object.values(toolData);
-                averages[tool] = (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1);
+                averages[anonymousTool] = (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1);
             } else {
-                averages[tool] = '-';
+                averages[anonymousTool] = '-';
             }
         });
 
-        document.getElementById('methodAAvg').textContent = averages['Method_A'];
-        document.getElementById('methodBAvg').textContent = averages['Method_B'];
-        document.getElementById('methodCAvg').textContent = averages['Method_C'];
-        document.getElementById('methodDAvg').textContent = averages['Method_D'];
-        
+        // 更新显示（按Tool_1, Tool_2, Tool_3, Tool_4的顺序）
+        document.getElementById('methodAAvg').textContent = averages['Tool_1'] || '-';
+        document.getElementById('methodBAvg').textContent = averages['Tool_2'] || '-';
+        document.getElementById('methodCAvg').textContent = averages['Tool_3'] || '-';
+        document.getElementById('methodDAvg').textContent = averages['Tool_4'] || '-';
+
         summaryElement.style.display = 'block';
     }
 
@@ -429,9 +468,11 @@ class TestCaseEvaluationSystem {
             timestamp: new Date().toISOString(),
             totalMethods: this.testMethods.length,
             evaluationData: this.evaluationData,
-            summary: this.generateSummaryReport()
+            methodToolMappings: this.methodToolMappings, // 包含工具映射信息
+            summary: this.generateSummaryReport(),
+            note: "methodToolMappings shows the mapping from anonymous tool names (Tool_1, Tool_2, etc.) to original tool names (Method_A, Method_B, etc.) for each method"
         };
-        
+
         const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -441,34 +482,51 @@ class TestCaseEvaluationSystem {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         alert('评估结果已导出！');
     }
 
     // 生成汇总报告
     generateSummaryReport() {
-        const tools = ['Method_A', 'Method_B', 'Method_C', 'Method_D'];
+        // 按原始工具名称统计，而不是按匿名标识
+        const originalToolStats = {};
+
+        this.testMethods.forEach(method => {
+            const methodData = this.evaluationData[method.id];
+            const toolMapping = this.methodToolMappings?.[method.id] || {};
+
+            if (methodData) {
+                // 遍历每个匿名工具标识
+                Object.keys(toolMapping).forEach(anonymousTool => {
+                    const originalToolName = toolMapping[anonymousTool];
+                    const toolData = methodData[anonymousTool];
+
+                    if (toolData && Object.keys(toolData).length === 4) {
+                        if (!originalToolStats[originalToolName]) {
+                            originalToolStats[originalToolName] = [];
+                        }
+
+                        const toolScores = Object.values(toolData);
+                        const totalScore = toolScores.reduce((sum, score) => sum + score, 0);
+                        originalToolStats[originalToolName].push(totalScore);
+                    }
+                });
+            }
+        });
+
+        // 计算每个原始工具的统计信息
         const summary = {};
-
-        tools.forEach(tool => {
-            const scores = [];
-            this.testMethods.forEach(method => {
-                const methodData = this.evaluationData[method.id];
-                if (methodData && methodData[tool] && Object.keys(methodData[tool]).length === 4) {
-                    const toolScores = Object.values(methodData[tool]);
-                    scores.push(toolScores.reduce((sum, score) => sum + score, 0));
-                }
-            });
-
+        Object.keys(originalToolStats).forEach(originalTool => {
+            const scores = originalToolStats[originalTool];
             if (scores.length > 0) {
-                summary[tool] = {
+                summary[originalTool] = {
                     count: scores.length,
                     average: (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2),
                     min: Math.min(...scores),
                     max: Math.max(...scores)
                 };
             } else {
-                summary[tool] = { count: 0, average: 0, min: 0, max: 0 };
+                summary[originalTool] = { count: 0, average: 0, min: 0, max: 0 };
             }
         });
 
@@ -479,7 +537,9 @@ class TestCaseEvaluationSystem {
     resetEvaluations() {
         if (confirm('确定要重置所有评分吗？此操作不可撤销。')) {
             this.evaluationData = {};
+            this.methodToolMappings = {};
             localStorage.removeItem('testCaseEvaluations');
+            localStorage.removeItem('methodToolMappings');
             this.displayCurrentMethod();
             this.updateStats();
             alert('所有评分已重置！');
