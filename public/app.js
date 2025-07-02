@@ -1,11 +1,26 @@
 // 测试用例可读性分析评估系统
+//
+// 固定的工具映射关系（不再随机化）：
+// Method_A = EvoSuite
+// Method_B = ChatUniTest
+// Method_C = HITS
+// Method_D = TestAgent
+//
 class TestCaseEvaluationSystem {
     constructor() {
         this.testMethods = [];
         this.currentMethodIndex = 0;
         this.evaluationData = {};
         this.testCaseFiles = {};
-        
+
+        // 固定的工具映射关系
+        this.toolMappings = {
+            'Method_A': { displayName: '方法 A ', actualTool: 'EvoSuite' },
+            'Method_B': { displayName: '方法 B ', actualTool: 'ChatUniTest' },
+            'Method_C': { displayName: '方法 C ', actualTool: 'HITS' },
+            'Method_D': { displayName: '方法 D ', actualTool: 'TestAgent' }
+        };
+
         this.init();
     }
 
@@ -15,6 +30,7 @@ class TestCaseEvaluationSystem {
         this.loadEvaluationData();
         this.displayCurrentMethod();
         this.updateStats();
+        this.updateProgressIndicator();
     }
 
     // 加载测试用例结构
@@ -99,9 +115,12 @@ class TestCaseEvaluationSystem {
         
         // 显示测试用例
         this.displayTestCases(currentMethod);
-        
+
         // 更新评估汇总
         this.updateEvaluationSummary(currentMethod);
+
+        // 更新进度指示器
+        this.updateProgressIndicator();
     }
 
     // 显示测试用例
@@ -117,15 +136,8 @@ class TestCaseEvaluationSystem {
 
             console.log(`方法 ${method.id} 的原始工具数据:`, toolNames);
 
-            // 为每个可用的工具创建显示信息
+            // 使用固定的工具映射关系 - 不再随机化
             toolNames.forEach((toolName, index) => {
-                const displayNames = {
-                    'Method_A': '方法 A',
-                    'Method_B': '方法 B',
-                    'Method_C': '方法 C',
-                    'Method_D': '方法 D'
-                };
-
                 const badges = {
                     'Method_A': 'method-a',
                     'Method_B': 'method-b',
@@ -133,9 +145,11 @@ class TestCaseEvaluationSystem {
                     'Method_D': 'method-d'
                 };
 
+                const mapping = this.toolMappings[toolName];
                 availableTools.push({
                     name: toolName,
-                    displayName: displayNames[toolName] || `方法 ${String.fromCharCode(65 + index)}`,
+                    displayName: mapping ? mapping.displayName : `方法 ${String.fromCharCode(65 + index)}`,
+                    actualTool: mapping ? mapping.actualTool : toolName,
                     badge: badges[toolName] || `method-${toolName.toLowerCase()}`
                 });
             });
@@ -271,11 +285,14 @@ class TestCaseEvaluationSystem {
         if (!this.evaluationData[methodId][toolName]) {
             this.evaluationData[methodId][toolName] = {};
         }
-        
+
         this.evaluationData[methodId][toolName][criterion] = score;
-        
+
         // 保存到localStorage
         localStorage.setItem('testCaseEvaluations', JSON.stringify(this.evaluationData));
+
+        // 更新进度指示器
+        this.updateProgressIndicator();
     }
 
     // 加载评估数据
@@ -392,16 +409,42 @@ class TestCaseEvaluationSystem {
         document.getElementById('progressPercent').textContent = `${progress}%`;
     }
 
+    // 更新进度指示器
+    updateProgressIndicator() {
+        const incompleteItems = this.checkEvaluationCompleteness();
+        const totalMethods = this.testMethods.length;
+        const completedMethods = totalMethods - incompleteItems.length;
+        const completionRate = totalMethods > 0 ? (completedMethods / totalMethods * 100) : 0;
+
+        // 更新进度条
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+
+        if (progressFill && progressText) {
+            progressFill.style.width = `${completionRate}%`;
+            progressText.textContent = `${completionRate.toFixed(1)}% 完成 (${completedMethods}/${totalMethods})`;
+
+            // 根据完成度改变颜色
+            if (completionRate === 100) {
+                progressFill.style.background = 'linear-gradient(90deg, #4caf50, #8bc34a)';
+            } else if (completionRate >= 50) {
+                progressFill.style.background = 'linear-gradient(90deg, #ff9800, #ffc107)';
+            } else {
+                progressFill.style.background = 'linear-gradient(90deg, #f44336, #ff5722)';
+            }
+        }
+    }
+
     // 更新评估汇总
     updateEvaluationSummary(method) {
         const summaryElement = document.getElementById('evaluationSummary');
         const methodData = this.evaluationData[method.id];
-        
+
         if (!methodData) {
             summaryElement.style.display = 'none';
             return;
         }
-        
+
         const tools = ['Method_A', 'Method_B', 'Method_C', 'Method_D'];
         const averages = {};
 
@@ -415,23 +458,88 @@ class TestCaseEvaluationSystem {
             }
         });
 
+        // 更新显示
         document.getElementById('methodAAvg').textContent = averages['Method_A'];
         document.getElementById('methodBAvg').textContent = averages['Method_B'];
         document.getElementById('methodCAvg').textContent = averages['Method_C'];
         document.getElementById('methodDAvg').textContent = averages['Method_D'];
-        
+
         summaryElement.style.display = 'block';
+    }
+
+    // 检查评估完成度
+    checkEvaluationCompleteness() {
+        const incomplete = [];
+        const tools = ['Method_A', 'Method_B', 'Method_C', 'Method_D'];
+
+        this.testMethods.forEach((method, index) => {
+            const methodData = this.evaluationData[method.id];
+            const methodIncomplete = [];
+
+            if (!methodData) {
+                // 整个方法都没有评估
+                methodIncomplete.push('所有工具方法');
+            } else {
+                // 检查每个工具方法是否完成
+                tools.forEach(tool => {
+                    const toolData = methodData[tool];
+                    const toolName = this.toolMappings[tool] ? this.toolMappings[tool].actualTool : tool;
+
+                    if (!toolData || Object.keys(toolData).length < 4) {
+                        methodIncomplete.push(`${toolName}`);
+                    }
+                });
+            }
+
+            if (methodIncomplete.length > 0) {
+                incomplete.push({
+                    methodIndex: index + 1,
+                    methodName: method.fullName || method.methodName || method.id,
+                    missingTools: methodIncomplete
+                });
+            }
+        });
+
+        return incomplete;
     }
 
     // 导出结果
     exportResults() {
+        // 检查完成度
+        const incompleteItems = this.checkEvaluationCompleteness();
+
+        if (incompleteItems.length > 0) {
+            // 生成未完成内容的详细信息
+            let warningMessage = '⚠️ 检测到以下内容尚未完成评估：\n\n';
+
+            incompleteItems.forEach(item => {
+                warningMessage += `📋 测试方法 ${item.methodIndex}: ${item.methodName}\n`;
+                warningMessage += `   未完成的工具: ${item.missingTools.join(', ')}\n\n`;
+            });
+
+            warningMessage += `总计：${incompleteItems.length} 个测试方法存在未完成的评估\n\n`;
+            warningMessage += '建议：\n';
+            warningMessage += '• 点击"取消"返回继续完成评估\n';
+            warningMessage += '• 点击"确定"导出当前不完整的结果\n\n';
+            warningMessage += '是否确定要导出不完整的评估结果？';
+
+            // 显示确认对话框
+            if (!confirm(warningMessage)) {
+                return; // 用户选择取消，不导出
+            }
+        }
+
+        // 生成导出数据
         const results = {
             timestamp: new Date().toISOString(),
             totalMethods: this.testMethods.length,
+            completedMethods: this.testMethods.length - incompleteItems.length,
+            incompleteItems: incompleteItems,
+            completionRate: ((this.testMethods.length - incompleteItems.length) / this.testMethods.length * 100).toFixed(1) + '%',
             evaluationData: this.evaluationData,
             summary: this.generateSummaryReport()
         };
-        
+
         const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -441,8 +549,12 @@ class TestCaseEvaluationSystem {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
-        alert('评估结果已导出！');
+
+        if (incompleteItems.length === 0) {
+            alert('✅ 评估结果已完整导出！所有测试方法都已完成评估。');
+        } else {
+            alert(`⚠️ 评估结果已导出！\n完成度: ${results.completionRate}\n建议完成所有评估后重新导出以获得完整数据。`);
+        }
     }
 
     // 生成汇总报告
@@ -460,15 +572,23 @@ class TestCaseEvaluationSystem {
                 }
             });
 
+            const actualToolName = this.toolMappings[tool] ? this.toolMappings[tool].actualTool : tool;
             if (scores.length > 0) {
-                summary[tool] = {
+                summary[actualToolName] = {
+                    methodKey: tool, // 保留原始的Method_X键用于数据访问
                     count: scores.length,
                     average: (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2),
                     min: Math.min(...scores),
                     max: Math.max(...scores)
                 };
             } else {
-                summary[tool] = { count: 0, average: 0, min: 0, max: 0 };
+                summary[actualToolName] = {
+                    methodKey: tool,
+                    count: 0,
+                    average: 0,
+                    min: 0,
+                    max: 0
+                };
             }
         });
 
