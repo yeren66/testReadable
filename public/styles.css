@@ -553,3 +553,51 @@ body {
 .test-case-card {
     animation: fadeIn 0.5s ease-out;
 }
+
+/* Statistics Bar */
+.stats-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+
+.stats-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 0 20px;
+}
+
+.stats-bar .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+}
+
+.stats-bar .stat-label {
+    font-size: 12px;
+    opacity: 0.9;
+    margin-bottom: 2px;
+}
+
+.stats-bar .stat-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+}
+
+/* 为底部统计栏留出空间 */
+body {
+    padding-bottom: 60px;
+}

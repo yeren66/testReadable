@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地数据管理器</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 6px; text-align: center; }
+        .stat-number { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-label { color: #6c757d; margin-top: 5px; }
+        .data-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .data-table th { background: #f8f9fa; font-weight: bold; }
+        .data-table tr:hover { background: #f5f5f5; }
+        .btn { background: #007bff; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .alert { padding: 12px; border-radius: 4px; margin: 10px 0; }
+        .alert-info { background: #d1ecf1; border-left: 4px solid #17a2b8; }
+        .alert-warning { background: #fff3cd; border-left: 4px solid #ffc107; }
+        .submission-details { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .submission-details pre { white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 本地数据管理器</h1>
+            <p>查看和管理本地存储的评分数据</p>
+        </div>
+
+        <div class="alert alert-info">
+            <h4>ℹ️ 说明</h4>
+            <p>此页面显示存储在浏览器本地存储中的数据。这些数据仅在当前浏览器中可见，不会同步到服务器。</p>
+            <p>要查看服务器端的提交数据，请访问 <a href="https://vercel.com/dashboard" target="_blank">Vercel Dashboard</a> 查看函数日志。</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalSubmissions">0</div>
+                <div class="stat-label">本地提交记录</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalMethods">0</div>
+                <div class="stat-label">已评分方法</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalEvaluations">0</div>
+                <div class="stat-label">总评分数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completionRate">0%</div>
+                <div class="stat-label">完成率</div>
+            </div>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button class="btn" onclick="refreshData()">🔄 刷新数据</button>
+            <button class="btn btn-success" onclick="exportData()">📥 导出数据</button>
+            <button class="btn btn-danger" onclick="clearData()">🗑️清空数据</button>
+            <button class="btn" onclick="window.open('/', '_blank')">🏠 返回主页</button>
+        </div>
+
+        <div id="dataContainer">
+            <h3>📋 提交记录</h3>
+            <div id="submissionsList">
+                <p>正在加载数据...</p>
+            </div>
+        </div>
+
+        <div id="currentDataContainer">
+            <h3>📊 当前评分数据</h3>
+            <div id="currentDataDisplay">
+                <p>正在加载当前评分数据...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 数据管理功能
+        function refreshData() {
+            loadSubmissionHistory();
+            loadCurrentData();
+            updateStats();
+        }
+
+        function loadSubmissionHistory() {
+            const submissions = JSON.parse(localStorage.getItem('submissionHistory') || '[]');
+            const container = document.getElementById('submissionsList');
+            
+            if (submissions.length === 0) {
+                container.innerHTML = '<p>暂无提交记录</p>';
+                return;
+            }
+
+            let html = '<table class="data-table"><thead><tr><th>提交ID</th><th>时间</th><th>完成方法</th><th>总评分</th><th>操作</th></tr></thead><tbody>';
+            
+            submissions.reverse().forEach((submission, index) => {
+                const date = new Date(submission.timestamp).toLocaleString();
+                html += `
+                    <tr>
+                        <td>${submission.id}</td>
+                        <td>${date}</td>
+                        <td>${submission.completedMethods || 0}</td>
+                        <td>${submission.totalEvaluations || 0}</td>
+                        <td>
+                            <button class="btn" onclick="viewSubmission(${submissions.length - 1 - index})">查看详情</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function loadCurrentData() {
+            const evaluationData = JSON.parse(localStorage.getItem('evaluationData') || '{}');
+            const container = document.getElementById('currentDataDisplay');
+            
+            if (Object.keys(evaluationData).length === 0) {
+                container.innerHTML = '<p>暂无当前评分数据</p>';
+                return;
+            }
+
+            let html = '<div class="submission-details"><h4>当前评分状态</h4>';
+            html += '<table class="data-table"><thead><tr><th>方法</th><th>已评分工具</th><th>评分数量</th></tr></thead><tbody>';
+            
+            Object.keys(evaluationData).forEach(methodId => {
+                const methodData = evaluationData[methodId];
+                const toolCount = Object.keys(methodData).length;
+                const evaluationCount = Object.values(methodData).reduce((sum, toolData) => {
+                    return sum + Object.keys(toolData).length;
+                }, 0);
+                
+                html += `
+                    <tr>
+                        <td>${methodId}</td>
+                        <td>${toolCount}</td>
+                        <td>${evaluationCount}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function updateStats() {
+            const submissions = JSON.parse(localStorage.getItem('submissionHistory') || '[]');
+            const evaluationData = JSON.parse(localStorage.getItem('evaluationData') || '{}');
+            
+            document.getElementById('totalSubmissions').textContent = submissions.length;
+            document.getElementById('totalMethods').textContent = Object.keys(evaluationData).length;
+            
+            const totalEvaluations = Object.values(evaluationData).reduce((sum, methodData) => {
+                return sum + Object.values(methodData).reduce((methodSum, toolData) => {
+                    return methodSum + Object.keys(toolData).length;
+                }, 0);
+            }, 0);
+            
+            document.getElementById('totalEvaluations').textContent = totalEvaluations;
+            
+            // 计算完成率（假设总共99个方法）
+            const completionRate = Object.keys(evaluationData).length > 0 ? 
+                ((Object.keys(evaluationData).length / 99) * 100).toFixed(1) : 0;
+            document.getElementById('completionRate').textContent = completionRate + '%';
+        }
+
+        function viewSubmission(index) {
+            const submissions = JSON.parse(localStorage.getItem('submissionHistory') || '[]');
+            const submission = submissions[index];
+            
+            if (submission) {
+                const popup = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
+                popup.document.write(`
+                    <html>
+                    <head><title>提交详情 - ${submission.id}</title></head>
+                    <body style="font-family: Arial, sans-serif; padding: 20px;">
+                        <h2>提交详情</h2>
+                        <p><strong>ID:</strong> ${submission.id}</p>
+                        <p><strong>时间:</strong> ${new Date(submission.timestamp).toLocaleString()}</p>
+                        <h3>完整数据</h3>
+                        <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow: auto;">${JSON.stringify(submission, null, 2)}</pre>
+                    </body>
+                    </html>
+                `);
+            }
+        }
+
+        function exportData() {
+            const submissions = JSON.parse(localStorage.getItem('submissionHistory') || '[]');
+            const evaluationData = JSON.parse(localStorage.getItem('evaluationData') || '{}');
+            const methodToolMappings = JSON.parse(localStorage.getItem('methodToolMappings') || '{}');
+            
+            const exportData = {
+                exportTime: new Date().toISOString(),
+                submissions: submissions,
+                currentEvaluationData: evaluationData,
+                currentMethodToolMappings: methodToolMappings
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `evaluation-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function clearData() {
+            if (confirm('确定要清空所有本地数据吗？此操作不可恢复。')) {
+                localStorage.removeItem('submissionHistory');
+                localStorage.removeItem('evaluationData');
+                localStorage.removeItem('methodToolMappings');
+                refreshData();
+                alert('数据已清空');
+            }
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', refreshData);
+    </script>
+</body>
+</html>

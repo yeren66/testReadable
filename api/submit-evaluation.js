@@ -38,8 +38,11 @@ export default async function handler(req, res) {
             data: submissionData
         };
 
-        // 将数据保存到环境变量或外部存储
-        // 这里我们使用console.log记录，在Vercel中可以通过函数日志查看
+        // 将数据保存到内存存储（用于演示）
+        // 在生产环境中，应该使用数据库或 Vercel KV
+        await saveSubmissionData(submission);
+
+        // 同时记录到日志
         console.log('=== EVALUATION SUBMISSION ===');
         console.log('Submission ID:', submission.id);
         console.log('Timestamp:', submission.timestamp);
@@ -82,6 +85,37 @@ function generateSubmissionId() {
     const timestamp = Date.now().toString(36);
     const randomStr = Math.random().toString(36).substring(2, 8);
     return `eval_${timestamp}_${randomStr}`;
+}
+
+// 简单的内存存储（仅用于演示）
+// 在生产环境中应该使用数据库
+let submissionStorage = [];
+
+// 保存提交数据
+async function saveSubmissionData(submission) {
+    try {
+        // 在实际部署中，这里应该保存到数据库
+        // 由于 Vercel 函数是无状态的，这个内存存储只在单次请求中有效
+        // 建议使用 Vercel KV、Supabase 或其他数据库服务
+
+        // 为了演示，我们将数据编码到环境变量中（不推荐用于生产）
+        const submissionSummary = {
+            id: submission.id,
+            timestamp: submission.timestamp,
+            userAgent: submission.userAgent,
+            ip: submission.ip,
+            completedMethods: submission.data.metadata?.completedMethods || 0,
+            incompleteMethods: submission.data.metadata?.incompleteMethods || 0,
+            totalMethods: submission.data.metadata?.totalMethods || 0,
+            totalEvaluations: getTotalEvaluations(submission.data.evaluationData)
+        };
+
+        console.log('Saved submission summary:', JSON.stringify(submissionSummary));
+        return submissionSummary;
+    } catch (error) {
+        console.error('Error saving submission:', error);
+        throw error;
+    }
 }
 
 // 计算总评分数量

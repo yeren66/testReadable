@@ -117,8 +117,13 @@ class TestCaseEvaluationSystem {
 
             console.log(`方法 ${method.id} 的原始工具数据:`, toolNames);
 
-            // 为每个可用的工具创建显示信息，使用随机顺序
-            const shuffledToolNames = this.shuffleArray([...toolNames]);
+            // 固定的工具映射关系 - 基于数据中实际的工具名称
+            const fixedToolMapping = {
+                'Method_A': { displayName: '方法 A (EvoSuite)', badge: 'method-a', anonymousName: 'Tool_1' },
+                'Method_B': { displayName: '方法 B (ChatUniTest)', badge: 'method-b', anonymousName: 'Tool_2' },
+                'Method_C': { displayName: '方法 C (HITS)', badge: 'method-c', anonymousName: 'Tool_3' },
+                'Method_D': { displayName: '方法 D (TestAgent)', badge: 'method-d', anonymousName: 'Tool_4' }
+            };
 
             // 保存每个方法的工具映射关系，用于正确的评分统计
             if (!this.methodToolMappings) {
@@ -126,20 +131,24 @@ class TestCaseEvaluationSystem {
             }
             this.methodToolMappings[method.id] = {};
 
-            shuffledToolNames.forEach((originalToolName, index) => {
-                const anonymousName = `Tool_${index + 1}`;  // 使用Tool_1, Tool_2等匿名标识
-                const displayName = `方法 ${String.fromCharCode(65 + index)}`; // 方法A, 方法B等
-                const badge = `method-${String.fromCharCode(97 + index)}`; // method-a, method-b等
+            // 按固定顺序处理工具 - 确保A、B、C、D的顺序
+            const orderedToolNames = ['Method_A', 'Method_B', 'Method_C', 'Method_D'].filter(toolName =>
+                toolNames.includes(toolName)
+            );
 
-                // 保存匿名标识到原始工具名的映射
-                this.methodToolMappings[method.id][anonymousName] = originalToolName;
+            orderedToolNames.forEach(originalToolName => {
+                const mapping = fixedToolMapping[originalToolName];
+                if (mapping) {
+                    // 保存匿名标识到原始工具名的映射
+                    this.methodToolMappings[method.id][mapping.anonymousName] = originalToolName;
 
-                availableTools.push({
-                    name: anonymousName,  // 使用匿名标识作为内部名称
-                    originalName: originalToolName,  // 保存原始名称
-                    displayName: displayName,
-                    badge: badge
-                });
+                    availableTools.push({
+                        name: mapping.anonymousName,  // 使用匿名标识作为内部名称
+                        originalName: originalToolName,  // 保存原始名称
+                        displayName: mapping.displayName,
+                        badge: mapping.badge
+                    });
+                }
             });
         }
 
@@ -398,8 +407,10 @@ class TestCaseEvaluationSystem {
 
     // 更新统计信息
     updateStats() {
+        const evaluationStatus = this.getEvaluationStatus();
         const totalMethods = this.testMethods.length;
         let evaluatedMethods = 0;
+        let totalEvaluations = 0;
 
         this.testMethods.forEach(method => {
             const methodData = this.evaluationData[method.id];
@@ -416,6 +427,14 @@ class TestCaseEvaluationSystem {
                 if (allToolsEvaluated) {
                     evaluatedMethods++;
                 }
+
+                // 计算总评分数
+                expectedTools.forEach(tool => {
+                    const toolData = methodData[tool];
+                    if (toolData) {
+                        totalEvaluations += Object.keys(toolData).length;
+                    }
+                });
             }
         });
 
@@ -424,6 +443,34 @@ class TestCaseEvaluationSystem {
         document.getElementById('totalMethods').textContent = totalMethods;
         document.getElementById('evaluatedMethods').textContent = evaluatedMethods;
         document.getElementById('progressPercent').textContent = `${progress}%`;
+
+        // 更新底部统计栏
+        this.updateStatsBar(evaluationStatus, progress, totalEvaluations);
+    }
+
+    // 更新底部统计栏
+    updateStatsBar(evaluationStatus, progressPercent, totalEvaluations) {
+        const overallProgressElement = document.getElementById('overallProgress');
+        const completedCountElement = document.getElementById('completedCount');
+        const incompleteCountElement = document.getElementById('incompleteCount');
+        const notStartedCountElement = document.getElementById('notStartedCount');
+        const totalEvaluationsElement = document.getElementById('totalEvaluations');
+
+        if (overallProgressElement) {
+            overallProgressElement.textContent = `${progressPercent}%`;
+        }
+        if (completedCountElement) {
+            completedCountElement.textContent = evaluationStatus.completed.length;
+        }
+        if (incompleteCountElement) {
+            incompleteCountElement.textContent = evaluationStatus.incomplete.length;
+        }
+        if (notStartedCountElement) {
+            notStartedCountElement.textContent = evaluationStatus.notStarted.length;
+        }
+        if (totalEvaluationsElement) {
+            totalEvaluationsElement.textContent = totalEvaluations;
+        }
     }
 
 
@@ -587,6 +634,9 @@ class TestCaseEvaluationSystem {
 
                 alert(statusMessage);
 
+                // 保存到本地历史记录
+                this.saveToLocalHistory(result, evaluationStatus, submissionData);
+
                 // 提交成功后可以选择清除本地数据
                 if (confirm('提交成功！是否清除本地评分数据？')) {
                     this.resetEvaluations();
@@ -605,15 +655,112 @@ class TestCaseEvaluationSystem {
         }
     }
 
+    // 保存到本地历史记录
+    saveToLocalHistory(response, evaluationStatus, submissionData) {
+        try {
+            const historyEntry = {
+                id: response.submissionId,
+                timestamp: response.timestamp,
+                completedMethods: evaluationStatus.completed.length,
+                incompleteMethods: evaluationStatus.incomplete.length,
+                notStartedMethods: evaluationStatus.notStarted.length,
+                totalMethods: this.testMethods.length,
+                totalEvaluations: Object.values(submissionData.evaluationData).reduce((sum, methodData) => {
+                    return sum + Object.values(methodData).reduce((methodSum, toolData) => {
+                        return methodSum + Object.keys(toolData).length;
+                    }, 0);
+                }, 0),
+                submissionData: submissionData // 保存完整的提交数据
+            };
+
+            // 获取现有历史记录
+            const history = JSON.parse(localStorage.getItem('submissionHistory') || '[]');
+
+            // 添加新记录
+            history.push(historyEntry);
+
+            // 保存回localStorage（限制最多保存50条记录）
+            if (history.length > 50) {
+                history.shift(); // 移除最旧的记录
+            }
+
+            localStorage.setItem('submissionHistory', JSON.stringify(history));
+
+            console.log('已保存到本地历史记录:', historyEntry.id);
+        } catch (error) {
+            console.error('保存本地历史记录失败:', error);
+        }
+    }
+
     // 导出结果
     exportResults() {
+        // 检查评分状态并提醒未完成的题目
+        const evaluationStatus = this.getEvaluationStatus();
+        const unevaluatedMethods = [...evaluationStatus.notStarted, ...evaluationStatus.incomplete];
+
+        if (unevaluatedMethods.length > 0) {
+            // 获取题号（基于方法在数组中的索引+1）
+            const getQuestionNumber = (methodName) => {
+                const index = this.testMethods.findIndex(method => method.id === methodName);
+                return index !== -1 ? index + 1 : '未知';
+            };
+
+            let message = `📊 评分状态统计：\n`;
+            message += `• 已完成: ${evaluationStatus.completed.length} 题\n`;
+            message += `• 部分完成: ${evaluationStatus.incomplete.length} 题\n`;
+            message += `• 未开始: ${evaluationStatus.notStarted.length} 题\n\n`;
+
+            if (evaluationStatus.notStarted.length > 0) {
+                message += `❌ 未开始的题目：\n`;
+                const notStartedNumbers = evaluationStatus.notStarted.map(name => `第${getQuestionNumber(name)}题`);
+                if (notStartedNumbers.length <= 10) {
+                    message += notStartedNumbers.join('、') + '\n\n';
+                } else {
+                    message += notStartedNumbers.slice(0, 10).join('、') + `... 等${notStartedNumbers.length}题\n\n`;
+                }
+            }
+
+            if (evaluationStatus.incomplete.length > 0) {
+                message += `⚠️ 部分完成的题目：\n`;
+                const incompleteNumbers = evaluationStatus.incomplete.map(name => `第${getQuestionNumber(name)}题`);
+                if (incompleteNumbers.length <= 10) {
+                    message += incompleteNumbers.join('、') + '\n\n';
+                } else {
+                    message += incompleteNumbers.slice(0, 10).join('、') + `... 等${incompleteNumbers.length}题\n\n`;
+                }
+            }
+
+            message += `是否继续导出当前已完成的评分结果？`;
+
+            if (!confirm(message)) {
+                return;
+            }
+        }
+
         const results = {
             timestamp: new Date().toISOString(),
             totalMethods: this.testMethods.length,
             evaluationData: this.evaluationData,
             methodToolMappings: this.methodToolMappings, // 包含工具映射信息
             summary: this.generateSummaryReport(),
-            note: "methodToolMappings shows the mapping from anonymous tool names (Tool_1, Tool_2, etc.) to original tool names (Method_A, Method_B, etc.) for each method"
+            evaluationStatus: {
+                completed: evaluationStatus.completed.length,
+                incomplete: evaluationStatus.incomplete.length,
+                notStarted: evaluationStatus.notStarted.length,
+                completedQuestions: evaluationStatus.completed.map(name => {
+                    const index = this.testMethods.findIndex(method => method.id === name);
+                    return index !== -1 ? index + 1 : '未知';
+                }),
+                incompleteQuestions: evaluationStatus.incomplete.map(name => {
+                    const index = this.testMethods.findIndex(method => method.id === name);
+                    return index !== -1 ? index + 1 : '未知';
+                }),
+                notStartedQuestions: evaluationStatus.notStarted.map(name => {
+                    const index = this.testMethods.findIndex(method => method.id === name);
+                    return index !== -1 ? index + 1 : '未知';
+                })
+            },
+            note: "methodToolMappings shows the mapping from anonymous tool names (Tool_1, Tool_2, etc.) to original tool names (Method_A, Method_B, etc.) for each method. evaluationStatus shows question numbers for different completion states."
         };
 
         const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
@@ -626,7 +773,14 @@ class TestCaseEvaluationSystem {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        alert('评估结果已导出！');
+        // 显示导出成功信息，包含完成状态
+        let successMessage = '✅ 评估结果已导出！\n\n';
+        successMessage += `📊 本次导出包含：\n`;
+        successMessage += `• 已完成评分: ${evaluationStatus.completed.length} 题\n`;
+        successMessage += `• 部分完成评分: ${evaluationStatus.incomplete.length} 题\n`;
+        successMessage += `• 总计: ${evaluationStatus.completed.length + evaluationStatus.incomplete.length}/${this.testMethods.length} 题`;
+
+        alert(successMessage);
     }
 
     // 生成汇总报告
